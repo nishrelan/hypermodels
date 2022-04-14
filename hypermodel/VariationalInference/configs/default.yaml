@@ -1,0 +1,23 @@
+random:
+  PRNGSeed: 0
+
+data:
+  num_draw_points: 100
+  num_train_points: 15
+  length_scale: 0.1
+  x_lims: [0, 1]
+  fourier:
+    num_bands: 50
+    base: 2
+    max_freq: 5
+
+model:
+  features: [512, 1]
+
+train:
+  train_split: 1
+  batch_size: 64
+  epochs: 100
+  lr: 1e-7
+  alpha: 0.0
+  print_epoch: 1

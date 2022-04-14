@@ -1,0 +1,23 @@
+defaults:
+  - data: generate
+
+train:
+  batch_size: 10
+  lr: 5e-4
+  epochs: 100
+  print_epoch: 1
+  train_split: 1
+  alpha: 0
+
+PRNGSeed: 0
+
+
+model:
+  features: [512, 1]
+
+run:
+  type: Real
+
+hydra:
+  run:
+    dir: ./outputs/${run.type}/${now:%Y-%m-%d}/${now:%H-%M-%S}
