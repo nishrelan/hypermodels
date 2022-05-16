@@ -1,0 +1,10 @@
+generate: True
+save_file: null
+length_scale: 0.1
+num_draw_points: 1000
+num_train_points: 100
+xlims: [0, 1]
+fourier:
+  num_bands: 50
+  base: 2
+  max_freq: 5

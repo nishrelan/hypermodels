@@ -1,0 +1,7 @@
+generate: False
+data_dir: datasets
+file: data.npy
+fourier:
+  num_bands: 20
+  base: 2
+  max_freq: 5

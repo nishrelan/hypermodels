@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 class MLP(nn.Module):
     features = [10, 1]
+    unflattener = None
 
     @nn.compact
     def __call__(self, x):
@@ -21,4 +22,16 @@ class MLP(nn.Module):
         x_out = MLP().apply(params, x_in)
         return x_out.flatten()
 
+
+class LinearHypermodel(nn.Module):
+    features: int
+
+    @nn.compact
+    def __call__(self, x):
+        x = jnp.sum(x, axis=0)
+        return nn.Dense(self.features)(x) / 10
+
+    @classmethod
+    def set_features(cls, base_model_features):
+        pass
 

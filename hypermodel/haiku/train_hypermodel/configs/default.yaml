@@ -1,0 +1,20 @@
+PRNGSeed: 0
+
+data:
+  fourier:
+    max_freq: 5
+    num_bands: 50
+    base: 2
+  generate:
+    length_scale: 0.1
+    num_train: 100
+    num_draw: 100
+    xlim: [0,1]
+
+model:
+  output_sizes: [512, 1]
+
+train:
+  num_epochs: 1000
+  print_epoch_loss: 1
+  lr: 5e-4
