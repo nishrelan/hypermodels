@@ -44,9 +44,14 @@ def collate_fn(samples):
     return xb, yb
 
 
-if __name__ == '__main__':
-    samples = [(1, 3), (2, 6), (3, 9)]
+def variable_collate(samples):
     xb, yb = list(zip(*samples))
-    xb = np.array(xb)
+    xb = np.stack(xb)
     yb = np.array(yb)
-    print(yb)
+    num_total = len(xb)
+    idxs = np.random.choice(num_total, size=10, replace=False)
+    return xb[idxs], yb[idxs]
+
+
+if __name__ == '__main__':
+    pass
