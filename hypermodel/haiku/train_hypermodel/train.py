@@ -16,12 +16,12 @@ import sys
 
 
 def mlp_forward(x, output_sizes):
-    model = MLP(output_sizes)
+    model = MLP(output_sizes=output_sizes, activation=jax.nn.relu)
     return model(x)
 
 
 def hypermodel_forward(x, linear_size, unraveler, base_model_apply):
-    model = Hypermodel(linear_size)
+    model = Hypermodel([linear_size])
     base_params = unraveler(model(x))
     return base_model_apply(base_params, x)
 
@@ -61,9 +61,10 @@ def main(config):
     encoding = jax.vmap(encoding, 0, 0)
     x_train_encoded = encoding(x_train)
 
+    print(config.model.output_sizes)
     base_model = hk.without_apply_rng(hk.transform(partial(mlp_forward, output_sizes=config.model.output_sizes)))
     splitter, key = jax.random.split(splitter)
-    base_params = base_model.init(key, x=x_train_encoded, output_sizes=config.model.output_sizes)
+    base_params = base_model.init(key, x=x_train_encoded)
     flattened_params, unraveler = jax.flatten_util.ravel_pytree(base_params)
     hypermodel = hk.without_apply_rng(hk.transform(
         partial(hypermodel_forward, linear_size=len(flattened_params),
@@ -73,7 +74,8 @@ def main(config):
     hypermodel_params = hypermodel.init(key, x=x_train_encoded)
     optimizer = optax.adam(config.train.lr)
     opt_state = optimizer.init(hypermodel_params)
-    train_loader = DataLoader(NumpyDataset(x_train_encoded, y_train), batch_size=101, collate_fn=variable_collate)
+    train_loader = DataLoader(NumpyDataset(x_train_encoded, y_train),
+                              batch_size=config.train.batch_size, collate_fn=collate_fn)
     trained_params = train(hypermodel, optimizer, opt_state, hypermodel_params,
                            train_loader, num_epochs=config.train.num_epochs,
                            print_epoch=config.train.print_epoch_loss)

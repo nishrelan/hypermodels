@@ -15,22 +15,16 @@ from torch.utils.data import DataLoader
 import sys
 
 
-def mlp_forward(x, output_sizes):
-    model = MLP(output_sizes, activation=jax.nn.relu)
+def mlp_forward(x, output_sizes, activation):
+    model = MLP(output_sizes, activation)
     return model(x)
 
 
-def hypermodel_forward(x, linear_size, unraveler, base_model_apply):
-    model = Hypermodel(linear_size)
-    base_params = unraveler(model(x))
-    return base_model_apply(base_params, x)
-
-
-def variational_forward(x, hypermodel_size, unraveler, hypermodel_apply, init_std, data_std, pi, small_prior_std, big_prior_std):
-    model = VariationalInference(hypermodel_size, init_std, pi, small_prior_std, big_prior_std)
-    hypermodel_params, posterior_log_prob, prior_log_prob = model()
-    hypermodel_params = unraveler(hypermodel_params)
-    return hypermodel_apply(hypermodel_params, x), posterior_log_prob, prior_log_prob, data_std
+def variational_forward(x, model_size, unraveler, model_apply, init_std, data_std, pi, small_prior_std, big_prior_std):
+    model = VariationalInference(model_size, init_std, pi, small_prior_std, big_prior_std)
+    base_model_params, posterior_log_prob, prior_log_prob = model()
+    base_model_params = unraveler(base_model_params)
+    return model_apply(base_model_params, x), posterior_log_prob, prior_log_prob, data_std
 
 
 def train(model, optimizer, opt_state, params, train_loader, num_epochs, print_epoch, splitter):
@@ -39,8 +33,8 @@ def train(model, optimizer, opt_state, params, train_loader, num_epochs, print_e
         x_train, y_train = data
         preds, log_q, log_p, data_std = model.apply(params=params, x=x_train, rng=rng_key)
         preds = preds.flatten()
-        likelihood = gaussian_log_prob(y_train, data_std*jnp.ones(len(y_train)), preds)
-        return log_q - log_p - likelihood, (log_q, log_p, likelihood)
+        likelihood = gaussian_log_prob(y_train, data_std * jnp.ones(len(y_train)), preds)
+        return 0 - likelihood, (log_q, log_p, likelihood)
 
     @jax.jit
     def train_step(params, opt_state, data, rng_key):
@@ -71,6 +65,11 @@ def main(config):
     splitter, key = jax.random.split(splitter)
     kwargs = config.data.generate
     x_train, y_train, x_draw, y_draw = gaussian_process(key, **kwargs)
+    sorted_idxs = np.argsort(x_train)
+    x_train = x_train[sorted_idxs]
+    y_train = y_train[sorted_idxs]
+    x_train = x_train[:25]
+    y_train = y_train[:25]
     args = config.data.fourier
     encoding = partial(fourier_positional_encoding, max_freq=args.max_freq, num_bands=args.num_bands, base=args.base)
     encoding = jax.vmap(encoding, 0, 0)
@@ -79,24 +78,15 @@ def main(config):
     """
         get pure function for hypermodel
     """
-    base_model = hk.without_apply_rng(hk.transform(partial(mlp_forward, output_sizes=config.model.output_sizes)))
+    activation_func = jax.nn.relu if config.model.activation == 'relu' else jax.nn.leaky_relu
+    base_model = hk.without_apply_rng(hk.transform(partial(mlp_forward, output_sizes=config.model.output_sizes,
+                                                           activation=activation_func)))
     splitter, key = jax.random.split(splitter)
     base_params = base_model.init(key, x=x_train_encoded, output_sizes=config.model.output_sizes)
     flattened_params, unraveler = jax.flatten_util.ravel_pytree(base_params)
-    hypermodel = hk.without_apply_rng(hk.transform(
-        partial(hypermodel_forward, linear_size=config.hypermodel.hidden_layers + [len(flattened_params)],
-                unraveler=unraveler, base_model_apply=base_model.apply)
-    ))
-
-    """
-        get pure function for var_inf model
-    """
-    splitter, key = jax.random.split(splitter)
-    hypermodel_params = hypermodel.init(key, x=x_train_encoded)
-    flattened_params, unraveler = jax.flatten_util.ravel_pytree(hypermodel_params)
     var_inf = hk.transform(
-        partial(variational_forward, hypermodel_size=len(flattened_params),
-                unraveler=unraveler, hypermodel_apply=hypermodel.apply,
+        partial(variational_forward, model_size=len(flattened_params),
+                unraveler=unraveler, model_apply=base_model.apply,
                 init_std=config.varinf.init_std, data_std=config.varinf.data_std,
                 pi=config.varinf.prior.pi, small_prior_std=config.varinf.prior.small_std,
                 big_prior_std=config.varinf.prior.big_std)
@@ -109,13 +99,20 @@ def main(config):
     """
     optimizer = optax.adam(config.train.lr)
     opt_state = optimizer.init(initial_params)
-    train_loader = DataLoader(NumpyDataset(x_train_encoded, y_train), batch_size=config.train.batch_size,
-                              collate_fn=collate_fn)
+    train_loader = DataLoader(NumpyDataset(x_train_encoded, y_train), batch_size=300,
+                              collate_fn=collate_fn, shuffle=True)
     trained_params = train(var_inf, optimizer, opt_state, initial_params,
                            train_loader, num_epochs=config.train.num_epochs,
                            print_epoch=config.train.print_epoch_loss, splitter=splitter)
     keys = jax.random.split(splitter, num=10)
     draw_plot(var_inf, trained_params, x_draw, y_draw, x_train, y_train, encoding, keys)
+    print(trained_params['variational_inference'].keys())
+    plt.clf()
+    plt.hist(trained_params['variational_inference']['rho'], bins=jnp.linspace(-1, 1, 10))
+    plt.savefig('rho_hist.png')
+    plt.clf()
+    plt.hist(trained_params['variational_inference']['mu'])
+    plt.savefig('mu_hist.png')
 
 
 def draw_plot(model, params, x_draw, y_draw, x_train, y_train, encoding, keys):
@@ -134,7 +131,7 @@ def draw_plot(model, params, x_draw, y_draw, x_train, y_train, encoding, keys):
         plt.plot(all_x, all_preds, label='Hypermodel')
         plt.scatter(x_train, y_train)
         plt.legend()
-        plt.savefig(str(key)+'.png')
+        plt.savefig(str(key) + '.png')
     plt.clf()
     avg_preds = jnp.mean(jnp.stack(all_preds_list), axis=0)
     plt.plot(all_x, all_y, label='True function')

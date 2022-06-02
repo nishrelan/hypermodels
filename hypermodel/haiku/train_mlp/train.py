@@ -12,7 +12,7 @@ import optax
 
 
 def mlp_forward(x, output_sizes):
-    model = MLP(output_sizes)
+    model = MLP(output_sizes, activation=jax.nn.relu)
     return model(x)
 
 
@@ -56,11 +56,12 @@ def main(config):
     optimizer = optax.adam(2e-4)
     opt_state = optimizer.init(params)
     trained_params = train(model, optimizer, opt_state,
-                           params, (x_train_encoded, y_train), num_epochs=10000, print_epoch=10)
+                           params, (x_train_encoded[:2], y_train[:2]), num_epochs=10000, print_epoch=10)
 
     pred_func = model.apply(trained_params, encoding(x_draw)).flatten()
     plt.plot(x_draw, y_draw, label='True function')
     plt.plot(x_draw, pred_func, label='Predicted function')
+    plt.scatter(x_train[:2], y_train[:2])
     plt.legend()
     plt.savefig('fig.png')
 

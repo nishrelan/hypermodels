@@ -7,15 +7,24 @@ data:
     base: 2
   generate:
     length_scale: 0.1
-    num_train: 100
+    num_train: 300
     num_draw: 100
     xlim: [0,1]
 
 model:
   output_sizes: [512, 1]
+  activation: 'relu'
+
+varinf:
+  data_std: 0.005
+  init_std: 1
+  prior:
+    pi: 0.5
+    small_std: 0.01
+    big_std: 1
 
 train:
-  num_epochs: 1000
+  num_epochs: 50000
   print_epoch_loss: 1
-  lr: 1e-4
-  batch_size: 5
+  lr: 1e-2
+  batch_size: 16

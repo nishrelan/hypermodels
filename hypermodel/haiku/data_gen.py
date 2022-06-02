@@ -27,6 +27,7 @@ def gaussian_process(key, num_draw, num_train, length_scale, xlim=(0, 1)):
     all_points = jnp.expand_dims(all_points, axis=1)
     all_points = np.array(all_points)
     K = RBF(length_scale=length_scale)(all_points)
+    np.random.seed(0)
     y_vals = np.random.multivariate_normal(np.zeros(num_total_points), K)
 
     y_vals = jnp.array(y_vals)
