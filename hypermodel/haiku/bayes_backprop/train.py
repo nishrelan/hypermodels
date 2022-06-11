@@ -34,7 +34,7 @@ def train(model, optimizer, opt_state, params, train_loader, num_epochs, print_e
         preds, log_q, log_p, data_std = model.apply(params=params, x=x_train, rng=rng_key)
         preds = preds.flatten()
         likelihood = gaussian_log_prob(y_train, data_std * jnp.ones(len(y_train)), preds)
-        return 0 - likelihood, (log_q, log_p, likelihood)
+        return log_q - log_p - likelihood, (log_q, log_p, likelihood)
 
     @jax.jit
     def train_step(params, opt_state, data, rng_key):
@@ -68,8 +68,8 @@ def main(config):
     sorted_idxs = np.argsort(x_train)
     x_train = x_train[sorted_idxs]
     y_train = y_train[sorted_idxs]
-    x_train = x_train[:25]
-    y_train = y_train[:25]
+    x_train = jnp.concatenate((x_train[:50], x_train[-50:]))
+    y_train = jnp.concatenate((y_train[:50], y_train[-50:]))
     args = config.data.fourier
     encoding = partial(fourier_positional_encoding, max_freq=args.max_freq, num_bands=args.num_bands, base=args.base)
     encoding = jax.vmap(encoding, 0, 0)

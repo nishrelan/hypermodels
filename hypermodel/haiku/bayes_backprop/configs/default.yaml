@@ -1,9 +1,9 @@
-PRNGSeed: 0
+PRNGSeed: 2
 
 data:
   fourier:
     max_freq: 5
-    num_bands: 50
+    num_bands: 100
     base: 2
   generate:
     length_scale: 0.1
@@ -12,8 +12,8 @@ data:
     xlim: [0,1]
 
 model:
-  output_sizes: [512, 1]
-  activation: 'relu'
+  output_sizes: [256, 1]
+  activation: 'leaky relu'
 
 varinf:
   data_std: 0.005
@@ -24,7 +24,7 @@ varinf:
     big_std: 1
 
 train:
-  num_epochs: 50000
+  num_epochs: 20000
   print_epoch_loss: 1
   lr: 1e-2
   batch_size: 16
